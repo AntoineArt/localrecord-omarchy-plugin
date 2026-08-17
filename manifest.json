@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "doublea.localrecord",
   "name": "LocalRecord",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "Antoine Artillan",
   "description": "Record mic + desktop audio from the bar",
   "kinds": [
@@ -13,7 +13,7 @@
   },
   "barWidget": {
     "displayName": "LocalRecord",
-    "description": "Recording state and elapsed time, with a popup for auto-levelling and the last recording",
+    "description": "Recording state and elapsed time, with a panel holding every setting and the last recording",
     "category": "Audio",
     "allowMultiple": false,
     "defaultSection": "right",

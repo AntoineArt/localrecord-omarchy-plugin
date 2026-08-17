@@ -61,6 +61,12 @@ Item {
   function reload() {
     stateFile.reload()
     if (pid > 0) processFile.reload()
+  }
+
+  // Costs a shell and a jq, and only ever changes the panel while the app is
+  // missing — so it is asked on its own slow timer rather than riding the
+  // three-second state reload, and not at all once the app is running.
+  function probeInstalled() {
     if (!installedProc.running) installedProc.running = true
   }
 
@@ -161,10 +167,7 @@ Item {
     processName = ""
   }
 
-  Component.onCompleted: {
-    nowSeconds = Date.now() / 1000
-    installedProc.running = true
-  }
+  Component.onCompleted: nowSeconds = Date.now() / 1000
 
   Process {
     id: installedProc
@@ -201,6 +204,16 @@ Item {
     running: true
     repeat: true
     onTriggered: root.reload()
+  }
+
+  // Only runs while the app is missing, which is the only time the answer can
+  // still change what the panel offers.
+  Timer {
+    interval: 15000
+    running: !root.running
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: root.probeInstalled()
   }
 
   // The elapsed clock. Separate from the reload timer so the label steps every

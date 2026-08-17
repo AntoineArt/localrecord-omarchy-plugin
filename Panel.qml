@@ -55,12 +55,20 @@ Panel {
   // ---- Panel cursor. Built from what is actually on screen, so keyboard
   //      navigation never lands on a row the state hid.
   readonly property var rows: {
-    if (!service.running) return [service.installed ? "launch" : "install"]
-    var list = ["record", "agc", "startup", "tray", "format"]
-    if (lossy) list.push("bitrate")
-    list.push("shortcut", "folder")
+    var list = []
+    if (!service.running) {
+      list.push(service.installed ? "launch" : "install")
+    } else {
+      list.push("record", "agc", "startup", "tray", "format")
+      if (lossy) list.push("bitrate")
+      list.push("shortcut", "folder")
+    }
+    // The last recording is a fact about the folder rather than about the
+    // process, so its rows stay on screen while the app is stopped — and the
+    // cursor has to reach them there too.
     if (hasLastFile) list.push("last")
-    list.push("openFolder", "quit")
+    list.push("openFolder")
+    if (service.running) list.push("quit")
     return list
   }
   property int rowIndex: 0
@@ -142,8 +150,6 @@ Panel {
     target: root.ipcTarget
     function open(): void { root.open() }
     function close(): void { root.close() }
-    function show(): void { root.open() }
-    function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
     function record(): string { service.toggleRecording(); return "ok" }
     function agc(): string { service.toggleAgc(); return "ok" }
@@ -303,58 +309,31 @@ Panel {
               fontFamily: root.fontFamily
             }
 
-            ActionRow {
+            ToggleRow {
               rowName: "agc"
               glyph: "󰕾"
               label: "Auto-level mic and desktop"
               detail: "Applies to the next recording"
+              checked: service.agc
               onActivated: service.toggleAgc()
-
-              trailing: Component {
-                ToggleSwitch {
-                  checked: service.agc
-                  hasCursor: root.hasCursorOn("agc")
-                  foreground: root.foreground
-                  onHovered: function(on) { if (on) root.setCursor("agc") }
-                  onToggled: service.toggleAgc()
-                }
-              }
             }
 
-            ActionRow {
+            ToggleRow {
               rowName: "startup"
               glyph: "󰐥"
               label: "Launch at login"
               detail: service.startup ? "Starts with your session" : "Started by hand"
+              checked: service.startup
               onActivated: service.toggleStartup()
-
-              trailing: Component {
-                ToggleSwitch {
-                  checked: service.startup
-                  hasCursor: root.hasCursorOn("startup")
-                  foreground: root.foreground
-                  onHovered: function(on) { if (on) root.setCursor("startup") }
-                  onToggled: service.toggleStartup()
-                }
-              }
             }
 
-            ActionRow {
+            ToggleRow {
               rowName: "tray"
               glyph: "󰏘"
               label: "Tray icon"
               detail: service.tray ? "Shown in the system tray" : "Hidden — this panel drives the app"
+              checked: service.tray
               onActivated: service.toggleTray()
-
-              trailing: Component {
-                ToggleSwitch {
-                  checked: service.tray
-                  hasCursor: root.hasCursorOn("tray")
-                  foreground: root.foreground
-                  onHovered: function(on) { if (on) root.setCursor("tray") }
-                  onToggled: service.toggleTray()
-                }
-              }
             }
 
             ActionRow {
@@ -560,6 +539,25 @@ Panel {
         active: actionRow.trailing !== null
         sourceComponent: actionRow.trailing
         Layout.alignment: Qt.AlignVCenter
+      }
+    }
+  }
+
+  // A row whose trailing control is a switch. The three settings that use one
+  // differ only in the state they mirror, so `checked` is the whole difference
+  // and flipping the switch is the same thing as activating the row.
+  component ToggleRow: ActionRow {
+    id: toggleRow
+
+    property bool checked: false
+
+    trailing: Component {
+      ToggleSwitch {
+        checked: toggleRow.checked
+        hasCursor: root.hasCursorOn(toggleRow.rowName)
+        foreground: root.foreground
+        onHovered: function(on) { if (on) root.setCursor(toggleRow.rowName) }
+        onToggled: toggleRow.activated()
       }
     }
   }
