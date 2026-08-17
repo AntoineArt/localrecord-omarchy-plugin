@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "doublea.localrecord",
+  "name": "LocalRecord",
+  "version": "1.0.0",
+  "author": "Antoine Artillan",
+  "description": "Record mic + desktop audio from the bar",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "LocalRecord",
+    "description": "Recording state and elapsed time, with a popup for auto-levelling and the last recording",
+    "category": "Audio",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "schema": [
+      {
+        "key": "primaryAction",
+        "type": "enum",
+        "label": "Left click",
+        "description": "Which action the left button takes. The other one moves to the right button.",
+        "options": [
+          "Toggle recording",
+          "Open panel"
+        ],
+        "defaultValue": "Toggle recording"
+      },
+      {
+        "key": "showElapsed",
+        "type": "boolean",
+        "label": "Show elapsed time",
+        "description": "Show the running length next to the icon while recording. Vertical bars never show it, for lack of room.",
+        "defaultValue": true
+      },
+      {
+        "key": "hideWhenIdle",
+        "type": "boolean",
+        "label": "Hide when idle",
+        "description": "Keep the widget out of the bar until a recording starts.",
+        "defaultValue": false
+      }
+    ]
+  }
+}
