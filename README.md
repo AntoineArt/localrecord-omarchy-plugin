@@ -16,7 +16,9 @@ enough control that the tray icon becomes optional — the panel can hide it.
 
 - Omarchy 4 (`omarchy-shell`), which is what loads the plugin.
 - LocalRecord **0.1.16 or newer** — older versions publish neither the state
-  file this reads nor the command file it writes.
+  file this reads nor the command file it writes. The app renumbered from
+  0.1.17 straight to 1.3.0 so that it and this widget share a version from
+  here on; the floor is still the old 0.1.16, which remains supported.
 
 ## Install
 
