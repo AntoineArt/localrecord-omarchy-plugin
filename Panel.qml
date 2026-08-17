@@ -55,7 +55,7 @@ Panel {
   // ---- Panel cursor. Built from what is actually on screen, so keyboard
   //      navigation never lands on a row the state hid.
   readonly property var rows: {
-    if (!service.running) return ["launch"]
+    if (!service.running) return [service.installed ? "launch" : "install"]
     var list = ["record", "agc", "startup", "tray", "format"]
     if (lossy) list.push("bitrate")
     list.push("shortcut", "folder")
@@ -91,7 +91,8 @@ Panel {
   }
 
   function activateCursor() {
-    if (cursorRow === "launch") service.launchApp()
+    if (cursorRow === "install") service.installApp()
+    else if (cursorRow === "launch") service.launchApp()
     else if (cursorRow === "record") service.toggleRecording()
     else if (cursorRow === "agc") service.toggleAgc()
     else if (cursorRow === "startup") service.toggleStartup()
@@ -260,8 +261,17 @@ Panel {
           }
 
           ActionRow {
+            rowName: "install"
+            visible: !service.running && !service.installed
+            glyph: "󰇚"
+            label: "Install LocalRecord"
+            detail: "Downloads the latest release into ~/.local/bin"
+            onActivated: { service.installApp(); root.close() }
+          }
+
+          ActionRow {
             rowName: "launch"
-            visible: !service.running
+            visible: !service.running && service.installed
             glyph: "󰐊"
             label: "Start LocalRecord"
             detail: "The app is not running"

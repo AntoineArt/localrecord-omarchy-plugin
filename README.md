@@ -27,6 +27,21 @@ omarchy plugin add https://github.com/AntoineArt/localrecord-omarchy-plugin.git 
 It lands in the right section of the bar. Move it with `omarchy bar move`, and
 remove it with `omarchy plugin remove doublea.localrecord`.
 
+### Installing the app
+
+`omarchy plugin add` runs no code — no install hooks, no sudo — so the app
+cannot ride along with the plugin. Instead the widget notices when it is
+missing and offers **Install LocalRecord** in its panel: that downloads the
+latest release binary into `~/.local/bin` and starts it, in a terminal window so
+you can see what it does. No sudo, and missing system libraries are reported
+rather than installed.
+
+The same thing from a shell, if you prefer:
+
+```bash
+~/.config/omarchy/plugins/doublea.localrecord/install-localrecord.sh
+```
+
 ## Interactions
 
 | Input | Action |

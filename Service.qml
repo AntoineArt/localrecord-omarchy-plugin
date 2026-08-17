@@ -41,6 +41,12 @@ Item {
   // until the first read lands, which is why `running` waits for `parsed`.
   property string processName: ""
 
+  // Whether the binary exists at all. A missing app and a stopped one need
+  // different offers — install versus start — and neither can be told from the
+  // state file, which a never-installed app has never written.
+  property bool installed: false
+  readonly property string installerPath: String(Qt.resolvedUrl("install-localrecord.sh")).replace("file://", "")
+
   readonly property bool running: parsed && pid > 0 && processName === "localrecord"
   readonly property bool isRecording: running && recording
 
@@ -55,6 +61,16 @@ Item {
   function reload() {
     stateFile.reload()
     if (pid > 0) processFile.reload()
+    if (!installedProc.running) installedProc.running = true
+  }
+
+  // Runs the installer in a floating terminal rather than silently: it
+  // downloads a binary and may have system libraries to report, and both are
+  // things the user should see.
+  function installApp() {
+    Quickshell.execDetached([
+      "omarchy-launch-floating-terminal-with-presentation", installerPath
+    ])
   }
 
   function toggleRecording() { send("record") }
@@ -145,7 +161,21 @@ Item {
     processName = ""
   }
 
-  Component.onCompleted: nowSeconds = Date.now() / 1000
+  Component.onCompleted: {
+    nowSeconds = Date.now() / 1000
+    installedProc.running = true
+  }
+
+  Process {
+    id: installedProc
+    // PATH, the usual prefix, or wherever the state file says the app last ran
+    // from — a build run out of its source tree counts as installed too.
+    command: ["bash", "-lc",
+      "command -v localrecord >/dev/null"
+      + " || test -x \"$HOME/.local/bin/localrecord\""
+      + " || test -x \"$(jq -r '.exe // empty' \"$HOME/.local/share/localrecord/state.json\" 2>/dev/null)\""]
+    onExited: function(exitCode) { root.installed = exitCode === 0 }
+  }
 
   FileView {
     id: stateFile
