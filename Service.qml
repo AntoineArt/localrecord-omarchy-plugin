@@ -9,14 +9,17 @@ import Quickshell.Io
 // the app renames the file into place (so a reader never sees a half-written
 // one), and a rename swaps the inode out from under a file watcher.
 //
-// Writing: signals, the same channel the compositor binding uses. SIGUSR1
-// toggles recording, SIGUSR2 toggles auto-levelling. That keeps the app the
-// single owner of its settings file, so its tray menu never goes stale.
+// Writing: a line appended to the app's command file. Every action the panel
+// offers routes through it, including the ones that carry a value, and the app
+// applies each one through the same code path its tray menu uses — so the menu,
+// the panel and the state file cannot disagree. Nothing here writes the app's
+// settings file directly.
 Item {
   id: root
 
   readonly property string home: Quickshell.env("HOME")
   readonly property string statePath: home + "/.local/share/localrecord/state.json"
+  readonly property string commandPath: home + "/.local/share/localrecord/command"
 
   // Parsed straight out of the state file.
   property bool parsed: false
@@ -29,6 +32,9 @@ Item {
   property bool agc: true
   property string hotkey: ""
   property string format: ""
+  property int bitrate: 0
+  property bool startup: false
+  property bool tray: true
   property string recordingsDir: ""
 
   // `comm` for our pid, so a crashed app is not read as an idle one. Empty
@@ -51,9 +57,15 @@ Item {
     if (pid > 0) processFile.reload()
   }
 
-  function toggleRecording() { signalApp("USR1") }
-
-  function toggleAgc() { signalApp("USR2") }
+  function toggleRecording() { send("record") }
+  function toggleAgc() { send("agc") }
+  function toggleStartup() { send("startup") }
+  function toggleTray() { send("tray") }
+  function changeShortcut() { send("shortcut") }
+  function changeFolder() { send("folder") }
+  function setFormat(value) { send("format " + value) }
+  function setBitrate(kbps) { send("bitrate " + Math.round(kbps)) }
+  function quitApp() { send("quit") }
 
   function openRecordingsFolder() {
     if (recordingsDir !== "") Quickshell.execDetached(["xdg-open", recordingsDir])
@@ -73,14 +85,18 @@ Item {
     Quickshell.execDetached(exe !== "" ? [exe] : ["localrecord"])
   }
 
-  // argv, never a shell string: `kill` takes the pid we parsed and nothing has
-  // to be quoted.
-  function signalApp(name) {
+  // Appended rather than written, so a second click lands behind the first
+  // instead of overwriting it. The shell is only here for the `>>`; every
+  // value is quoted, and each one comes from a fixed vocabulary anyway.
+  function send(line) {
     if (!running) {
       root.actionFailed("LocalRecord is not running")
       return
     }
-    Quickshell.execDetached(["kill", "-" + name, String(pid)])
+    Quickshell.execDetached([
+      "bash", "-c",
+      "printf '%s\\n' " + JSON.stringify(String(line)) + " >> " + JSON.stringify(commandPath)
+    ])
   }
 
   function applyState(raw) {
@@ -113,6 +129,9 @@ Item {
     agc = data.agc !== false
     hotkey = String(data.hotkey || "")
     format = String(data.format || "")
+    bitrate = Number(data.bitrate) || 0
+    startup = data.startup === true
+    tray = data.tray !== false
     recordingsDir = String(data.recordings_dir || "")
     parsed = true
     if (pid > 0) processFile.reload()

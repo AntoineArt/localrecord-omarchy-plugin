@@ -8,7 +8,8 @@ import qs.Ui
 import "Model.js" as Model
 
 // LocalRecord in the bar: a mic glyph that turns into a live REC pill, and a
-// popup with the controls the tray menu has plus the last recording.
+// panel holding everything the app can be told to do — recording, every
+// setting, and the last file it saved. The tray menu is not needed to drive it.
 //
 // Everything visual comes off the bar and the theme singletons — foreground,
 // urgent, font family, spacing — so a theme switch carries the widget with it
@@ -27,12 +28,11 @@ Panel {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   // ---- User settings, from this widget's shell.json entry.
-  readonly property bool panelOnLeftClick: String(setting("primaryAction", "Toggle recording")) === "Open panel"
   readonly property bool showElapsed: setting("showElapsed", true) === true
   readonly property bool hideWhenIdle: setting("hideWhenIdle", false) === true
 
-  readonly property bool timerVisible: showElapsed && service.isRecording && !vertical
   readonly property bool vertical: bar ? bar.vertical : false
+  readonly property bool timerVisible: showElapsed && service.isRecording && !vertical
 
   readonly property string glyph: service.isRecording ? "󰻂" : (service.running ? "󰍬" : "󰍭")
   readonly property string elapsedText: Model.elapsedText(service.elapsed)
@@ -42,7 +42,7 @@ Panel {
 
   readonly property string tooltip: {
     if (!service.running) return "LocalRecord is not running"
-    if (service.isRecording) return "Recording " + elapsedText + " — click to stop"
+    if (service.isRecording) return "Recording " + elapsedText
     var shortcut = Model.shortcutText(service.hotkey)
     return shortcut === "" ? "LocalRecord" : "LocalRecord · " + shortcut
   }
@@ -50,15 +50,17 @@ Panel {
   readonly property string lastFileName: Model.fileName(service.lastFile)
   readonly property string lastSavedText: Model.savedAgoText(service.lastSavedAt, service.nowSeconds)
   readonly property bool hasLastFile: service.lastFile !== ""
+  readonly property bool lossy: String(service.format).toLowerCase() === "opus"
 
-  // ---- Popup cursor, for keyboard navigation.
+  // ---- Panel cursor. Built from what is actually on screen, so keyboard
+  //      navigation never lands on a row the state hid.
   readonly property var rows: {
-    var list = []
-    if (!service.running) list.push("launch")
-    else list.push("record")
-    if (service.running) list.push("agc")
+    if (!service.running) return ["launch"]
+    var list = ["record", "agc", "startup", "tray", "format"]
+    if (lossy) list.push("bitrate")
+    list.push("shortcut", "folder")
     if (hasLastFile) list.push("last")
-    list.push("folder")
+    list.push("openFolder", "quit")
     return list
   }
   property int rowIndex: 0
@@ -72,6 +74,12 @@ Panel {
 
   function moveCursor(dx, dy) {
     cursorActive = true
+    // Left/right adjusts the row that has a range; everywhere else it is inert.
+    if (dx !== 0) {
+      if (cursorRow === "bitrate") service.setBitrate(clampBitrate(service.bitrate + dx * 16))
+      else if (cursorRow === "format") toggleFormat()
+      return
+    }
     if (dy === 0) return
     rowIndex = Math.max(0, Math.min(rows.length - 1, rowIndex + dy))
   }
@@ -86,12 +94,24 @@ Panel {
     if (cursorRow === "launch") service.launchApp()
     else if (cursorRow === "record") service.toggleRecording()
     else if (cursorRow === "agc") service.toggleAgc()
+    else if (cursorRow === "startup") service.toggleStartup()
+    else if (cursorRow === "tray") service.toggleTray()
+    else if (cursorRow === "format") toggleFormat()
+    else if (cursorRow === "shortcut") service.changeShortcut()
+    else if (cursorRow === "folder") service.changeFolder()
     else if (cursorRow === "last") service.openLastFile()
-    else if (cursorRow === "folder") service.openRecordingsFolder()
+    else if (cursorRow === "openFolder") service.openRecordingsFolder()
+    else if (cursorRow === "quit") service.quitApp()
   }
 
-  // Hidden while idle only when asked; a recording always shows, otherwise the
-  // setting would hide the one state worth seeing.
+  function toggleFormat() { service.setFormat(root.lossy ? "wav" : "opus") }
+
+  function clampBitrate(value) { return Math.max(32, Math.min(128, Math.round(value))) }
+
+  // A picker opens a dialog on top of everything; leaving the panel up behind
+  // it would just be in the way.
+  function closeAfterPicker() { root.close() }
+
   visible: !hideWhenIdle || service.isRecording
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -110,8 +130,6 @@ Panel {
     }
   }
 
-  // Measured off-screen: the button has to reserve room for the timer, which
-  // lives inside its icon slot and so cannot be asked for its width.
   TextMetrics {
     id: timerMetrics
     font.family: root.fontFamily
@@ -168,10 +186,11 @@ Panel {
       }
     }
 
+    // Left opens the panel, which is where everything lives. Middle is the
+    // one shortcut kept for muscle memory; right is deliberately unbound.
     onPressed: function(buttonCode) {
-      if (buttonCode === Qt.MiddleButton) service.openRecordingsFolder()
-      else if (buttonCode === Qt.RightButton) root.panelOnLeftClick ? service.toggleRecording() : root.toggle()
-      else root.panelOnLeftClick ? root.toggle() : service.toggleRecording()
+      if (buttonCode === Qt.MiddleButton) service.toggleRecording()
+      else if (buttonCode !== Qt.RightButton) root.toggle()
     }
   }
 
@@ -182,8 +201,8 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(320))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(520))
+    contentWidth: panel.fittedContentWidth(Style.space(340))
+    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(620))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -199,6 +218,7 @@ Panel {
         var key = String(t).toLowerCase()
         if (key === "r") service.toggleRecording()
         else if (key === "a") service.toggleAgc()
+        else if (key === "f") root.toggleFormat()
         else if (key === "o") service.openRecordingsFolder()
         else if (key === "c") service.copyLastPath()
       }
@@ -212,56 +232,29 @@ Panel {
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
         interactive: contentHeight > height
-        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+        ScrollBar.vertical: ShellScrollBar {
+          policy: ScrollBar.AsNeeded
+        }
 
         Column {
           id: column
-          width: panelFlick.width
+          width: panelFlick.width - Style.space(10)
           spacing: Style.space(12)
 
-          Item {
-            id: header
+          PanelHero {
+            id: hero
             width: parent.width
-            implicitHeight: hero.implicitHeight
-            readonly property bool ringVisible: root.hasCursorOn("agc")
-            function focusHero() { root.setCursor("agc") }
-
-            PanelHero {
-              id: hero
-              width: parent.width
-              title: "LocalRecord"
-              meta: root.stateText
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              iconOpacity: service.isRecording ? 1.0 : 0.55
-              iconComponent: Component {
-                Text {
-                  text: root.glyph
-                  color: service.isRecording ? root.urgent : root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.display
-                }
-              }
-
-              // Auto-levelling on the hero's trailing edge: the one setting
-              // worth a switch, and the app owns the write (SIGUSR2) so its
-              // tray checkmark stays in step.
-              trailingControl: Component {
-                ToggleSwitch {
-                  id: agcSwitch
-                  visible: service.running
-                  checked: service.agc
-                  hasCursor: header.ringVisible
-                  foreground: hero.foreground
-                  onHovered: function(on) { if (on) header.focusHero() }
-                  onToggled: service.toggleAgc()
-
-                  PanelToolTip {
-                    visible: agcSwitch.containsMouse
-                    text: service.agc ? "Turn auto-levelling off" : "Turn auto-levelling on"
-                    fontFamily: hero.fontFamily
-                  }
-                }
+            title: "LocalRecord"
+            meta: root.stateText
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+            iconOpacity: service.isRecording ? 1.0 : 0.55
+            iconComponent: Component {
+              Text {
+                text: root.glyph
+                color: service.isRecording ? root.urgent : root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.display
               }
             }
           }
@@ -287,21 +280,145 @@ Panel {
             onActivated: service.toggleRecording()
           }
 
+          PanelSeparator { visible: service.running; foreground: root.foreground }
+
           Column {
             visible: service.running
             width: parent.width
-            spacing: Style.spacing.labelGap
+            spacing: Style.space(6)
 
-            InfoPair { label: "Auto-levelling"; value: service.agc ? "On" : "Off" }
-            InfoPair { label: "Format"; value: String(service.format).toUpperCase() }
-            InfoPair { label: "Folder"; value: Model.shortPath(service.recordingsDir, service.home) }
+            PanelSectionHeader {
+              text: "SETTINGS"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+            }
+
+            ActionRow {
+              rowName: "agc"
+              glyph: "󰕾"
+              label: "Auto-level mic and desktop"
+              detail: "Applies to the next recording"
+              onActivated: service.toggleAgc()
+
+              trailing: Component {
+                ToggleSwitch {
+                  checked: service.agc
+                  hasCursor: root.hasCursorOn("agc")
+                  foreground: root.foreground
+                  onHovered: function(on) { if (on) root.setCursor("agc") }
+                  onToggled: service.toggleAgc()
+                }
+              }
+            }
+
+            ActionRow {
+              rowName: "startup"
+              glyph: "󰐥"
+              label: "Launch at login"
+              detail: service.startup ? "Starts with your session" : "Started by hand"
+              onActivated: service.toggleStartup()
+
+              trailing: Component {
+                ToggleSwitch {
+                  checked: service.startup
+                  hasCursor: root.hasCursorOn("startup")
+                  foreground: root.foreground
+                  onHovered: function(on) { if (on) root.setCursor("startup") }
+                  onToggled: service.toggleStartup()
+                }
+              }
+            }
+
+            ActionRow {
+              rowName: "tray"
+              glyph: "󰏘"
+              label: "Tray icon"
+              detail: service.tray ? "Shown in the system tray" : "Hidden — this panel drives the app"
+              onActivated: service.toggleTray()
+
+              trailing: Component {
+                ToggleSwitch {
+                  checked: service.tray
+                  hasCursor: root.hasCursorOn("tray")
+                  foreground: root.foreground
+                  onHovered: function(on) { if (on) root.setCursor("tray") }
+                  onToggled: service.toggleTray()
+                }
+              }
+            }
+
+            ActionRow {
+              rowName: "format"
+              glyph: "󰈣"
+              label: "Format"
+              detail: root.lossy ? "Compact, ~30 MB per hour" : "Uncompressed"
+              onActivated: root.toggleFormat()
+
+              trailing: Component {
+                ButtonGroup {
+                  options: [{ value: "opus", label: "Opus" }, { value: "wav", label: "WAV" }]
+                  value: root.lossy ? "opus" : "wav"
+                  foreground: root.foreground
+                  background: root.bar ? root.bar.background : Color.background
+                  accent: Color.accent
+                  fontFamily: root.fontFamily
+                  fontSize: Style.font.caption
+                  cursorIndex: root.hasCursorOn("format") ? (root.lossy ? 0 : 1) : -1
+                  onChanged: function(value) { service.setFormat(value) }
+                  onHovered: function(index, isHovered) { if (isHovered) root.setCursor("format") }
+                }
+              }
+            }
+
+            // Only Opus has a bitrate to spend; WAV is what it is.
+            Column {
+              visible: root.lossy
+              width: parent.width
+              spacing: Style.space(2)
+
+              ActionRow {
+                rowName: "bitrate"
+                glyph: "󰓅"
+                label: "Bitrate"
+                detail: service.bitrate + " kbps"
+                activatable: false
+              }
+
+              PanelSlider {
+                x: Style.space(10)
+                width: parent.width - Style.space(20)
+                bar: root.bar
+                minimum: 32
+                maximum: 128
+                step: 16
+                integer: true
+                value: service.bitrate
+                onReleased: function(value) { service.setBitrate(value) }
+              }
+            }
+
+            ActionRow {
+              rowName: "shortcut"
+              glyph: "󰌌"
+              label: "Shortcut"
+              detail: Model.shortcutText(service.hotkey) || "None"
+              onActivated: { service.changeShortcut(); root.closeAfterPicker() }
+            }
+
+            ActionRow {
+              rowName: "folder"
+              glyph: "󰝰"
+              label: "Recordings folder"
+              detail: Model.shortPath(service.recordingsDir, service.home)
+              onActivated: { service.changeFolder(); root.closeAfterPicker() }
+            }
           }
 
           PanelSeparator { foreground: root.foreground }
 
           Column {
             width: parent.width
-            spacing: Style.space(10)
+            spacing: Style.space(6)
 
             PanelSectionHeader {
               text: "LAST RECORDING"
@@ -333,30 +450,34 @@ Panel {
                   foreground: root.foreground
                   fontFamily: root.fontFamily
                   onClicked: service.copyLastPath()
-
-                  PanelToolTip {
-                    visible: parent.containsMouse === true
-                    text: "Copy path"
-                    fontFamily: root.fontFamily
-                  }
                 }
               }
             }
 
             ActionRow {
-              rowName: "folder"
+              rowName: "openFolder"
               glyph: "󰉋"
               label: "Open recordings folder"
-              detail: Model.shortPath(service.recordingsDir, service.home)
               onActivated: service.openRecordingsFolder()
             }
+          }
+
+          PanelSeparator { visible: service.running; foreground: root.foreground }
+
+          ActionRow {
+            rowName: "quit"
+            visible: service.running
+            glyph: "󰗼"
+            label: "Quit LocalRecord"
+            detail: "Stops recording and closes the app"
+            onActivated: { service.quitApp(); root.close() }
           }
         }
       }
     }
   }
 
-  // One row shape for every action in the panel: glyph, label, sub-label, an
+  // One row shape for every line in the panel: glyph, label, sub-label, an
   // optional trailing control, and a cursor ring shared with the keyboard.
   component ActionRow: CursorSurface {
     id: actionRow
@@ -366,6 +487,7 @@ Panel {
     property string label: ""
     property string detail: ""
     property bool accent: false
+    property bool activatable: true
     property Component trailing: null
 
     signal activated()
@@ -378,9 +500,9 @@ Panel {
     MouseArea {
       anchors.fill: parent
       hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
+      cursorShape: actionRow.activatable ? Qt.PointingHandCursor : Qt.ArrowCursor
       onEntered: root.setCursor(actionRow.rowName)
-      onClicked: actionRow.activated()
+      onClicked: if (actionRow.activatable) actionRow.activated()
     }
 
     RowLayout {
@@ -420,7 +542,7 @@ Panel {
           color: root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
-          elide: Text.ElideRight
+          elide: Text.ElideMiddle
         }
       }
 
@@ -430,34 +552,5 @@ Panel {
         Layout.alignment: Qt.AlignVCenter
       }
     }
-  }
-
-  component InfoPair: Row {
-    property string label: ""
-    property string value: ""
-
-    width: parent ? parent.width : 0
-    spacing: Style.space(8)
-
-    InfoLabel { text: label }
-    Item {
-      width: Math.max(0, parent.width - parent.children[0].implicitWidth - parent.children[2].implicitWidth - parent.spacing * 2)
-      height: 1
-    }
-    InfoValue { text: value }
-  }
-
-  component InfoLabel: Text {
-    color: root.foreground
-    opacity: 0.6
-    font.family: root.fontFamily
-    font.pixelSize: Style.font.bodySmall
-  }
-
-  component InfoValue: Text {
-    color: root.foreground
-    font.family: root.fontFamily
-    font.pixelSize: Style.font.bodySmall
-    elide: Text.ElideMiddle
   }
 }
