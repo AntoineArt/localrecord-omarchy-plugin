@@ -7,7 +7,7 @@ import qs.Commons
 import qs.Ui
 import "Model.js" as Model
 
-// LocalRecord in the bar: a mic glyph that turns into a live REC pill, and a
+// LocalRecord in the bar: a waveform that turns into a live REC pill, and a
 // panel holding everything the app can be told to do — recording, every
 // setting, and the last file it saved. The tray menu is not needed to drive it.
 //
@@ -34,7 +34,12 @@ Panel {
   readonly property bool vertical: bar ? bar.vertical : false
   readonly property bool timerVisible: showElapsed && service.isRecording && !vertical
 
-  readonly property string glyph: service.isRecording ? "󰻂" : (service.running ? "󰍬" : "󰍭")
+  // A waveform rather than a microphone: next to the bar's headphones, screen
+  // and shield, a mic glyph names a device and reads as its settings, when what
+  // this widget does is capture a signal. Recording swaps it for the record dot,
+  // so the state changes shape and not only colour. "Not running" is the
+  // button's own `dimmed`, which is why there is no third glyph here.
+  readonly property string glyph: service.isRecording ? "󰻂" : "󱑽"
   readonly property string elapsedText: Model.elapsedText(service.elapsed)
   readonly property string stateText: service.isRecording
     ? "Recording " + elapsedText

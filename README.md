@@ -3,7 +3,7 @@
 A bar widget for [LocalRecord](https://github.com/AntoineArt/localrecord), the
 tray app that records your microphone and desktop audio into one file.
 
-A microphone glyph while idle, a red REC dot and a running clock while
+A waveform glyph while idle, a red REC dot and a running clock while
 recording, and a panel holding everything the app can be told to do — recording,
 every setting, and the last file it saved, one click from being opened or copied.
 
