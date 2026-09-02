@@ -466,6 +466,19 @@ Panel {
             detail: "Stops recording and closes the app"
             onActivated: { service.quitApp(); root.close() }
           }
+
+          // Only while the app is up: the state file outlives the process, and
+          // a version for something that is not running says nothing useful.
+          // Apps older than 1.3.2 publish no version, so the row hides itself
+          // rather than showing a blank. Not in `rows` — nothing to activate.
+          ActionRow {
+            rowName: "version"
+            visible: service.running && service.appVersion !== ""
+            glyph: "󰋽"
+            label: "Version"
+            detail: service.appVersion
+            activatable: false
+          }
         }
       }
     }

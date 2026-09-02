@@ -19,6 +19,9 @@ enough control that the tray icon becomes optional — the panel can hide it.
   file this reads nor the command file it writes. The app renumbered from
   0.1.17 straight to 1.3.0 so that it and this widget share a version from
   here on; the floor is still the old 0.1.16, which remains supported.
+- The panel's **Version** row needs LocalRecord **1.3.2 or newer**, which is
+  the first release to publish `app_version` in its state file. Below that the
+  row hides itself; nothing else changes, so the floor stays where it is.
 
 ## Install
 

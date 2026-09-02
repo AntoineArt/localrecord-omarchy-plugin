@@ -36,6 +36,9 @@ Item {
   property bool startup: false
   property bool tray: true
   property string recordingsDir: ""
+  // Empty when the app predates 1.3.2, which is the only thing its absence
+  // means — the field is additive, so an older app is not a broken one.
+  property string appVersion: ""
 
   // `comm` for our pid, so a crashed app is not read as an idle one. Empty
   // until the first read lands, which is why `running` waits for `parsed`.
@@ -155,6 +158,7 @@ Item {
     startup = data.startup === true
     tray = data.tray !== false
     recordingsDir = String(data.recordings_dir || "")
+    appVersion = String(data.app_version || "")
     parsed = true
     if (pid > 0) processFile.reload()
   }
