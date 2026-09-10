@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "Model.js" as Model
 
 // Everything the widget knows about LocalRecord, and every way it talks back.
 //
@@ -39,6 +40,8 @@ Item {
   // Empty when the app predates 1.3.2, which is the only thing its absence
   // means — the field is additive, so an older app is not a broken one.
   property string appVersion: ""
+  property string pluginVersion: ""
+  readonly property bool desktopOnlyAgc: Model.desktopOnlyAgc(appVersion)
 
   // `comm` for our pid, so a crashed app is not read as an idle one. Empty
   // until the first read lands, which is why `running` waits for `parsed`.
@@ -50,7 +53,7 @@ Item {
   property bool installed: false
   readonly property string installerPath: String(Qt.resolvedUrl("install-localrecord.sh")).replace("file://", "")
 
-  readonly property bool running: parsed && pid > 0 && processName === "localrecord"
+  readonly property bool running: parsed && pid > 0 && Model.isLocalRecordProcess(processName, appVersion)
   readonly property bool isRecording: running && recording
 
   // Ticks only while recording, so an idle bar costs nothing.
@@ -182,6 +185,15 @@ Item {
       + " || test -x \"$HOME/.local/bin/localrecord\""
       + " || test -x \"$(jq -r '.exe // empty' \"$HOME/.local/share/localrecord/state.json\" 2>/dev/null)\""]
     onExited: function(exitCode) { root.installed = exitCode === 0 }
+  }
+
+  FileView {
+    id: manifestFile
+    path: String(Qt.resolvedUrl("manifest.json")).replace("file://", "")
+    onLoaded: {
+      try { root.pluginVersion = String(JSON.parse(text()).version || "") }
+      catch (error) { root.pluginVersion = "" }
+    }
   }
 
   FileView {

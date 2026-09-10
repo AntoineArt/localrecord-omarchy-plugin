@@ -47,10 +47,13 @@ Panel {
 
   readonly property string tooltip: {
     if (!service.running) return "LocalRecord is not running"
-    if (service.isRecording) return "Recording " + elapsedText
+    if (service.isRecording) return root.appTitle + " · Recording " + elapsedText
     var shortcut = Model.shortcutText(service.hotkey)
-    return shortcut === "" ? "LocalRecord" : "LocalRecord · " + shortcut
+    return shortcut === "" ? root.appTitle : root.appTitle + " · " + shortcut
   }
+
+  readonly property string appTitle: "LocalRecord"
+    + (service.running && service.appVersion !== "" ? " " + service.appVersion : "")
 
   readonly property string lastFileName: Model.fileName(service.lastFile)
   readonly property string lastSavedText: Model.savedAgoText(service.lastSavedAt, service.nowSeconds)
@@ -256,7 +259,7 @@ Panel {
           PanelHero {
             id: hero
             width: parent.width
-            title: "LocalRecord"
+            title: root.appTitle
             meta: root.stateText
             foreground: root.foreground
             fontFamily: root.fontFamily
@@ -317,8 +320,10 @@ Panel {
             ToggleRow {
               rowName: "agc"
               glyph: "󰕾"
-              label: "Auto-level mic and desktop"
-              detail: "Applies to the next recording"
+              label: service.desktopOnlyAgc ? "Auto-level desktop audio" : "Auto-level mic and desktop"
+              detail: service.desktopOnlyAgc
+                ? "Fixed mic gain · Next recording"
+                : "Applies to the next recording"
               checked: service.agc
               onActivated: service.toggleAgc()
             }
@@ -475,8 +480,17 @@ Panel {
             rowName: "version"
             visible: service.running && service.appVersion !== ""
             glyph: "󰋽"
-            label: "Version"
+            label: "App version"
             detail: service.appVersion
+            activatable: false
+          }
+
+          ActionRow {
+            rowName: "pluginVersion"
+            visible: service.pluginVersion !== ""
+            glyph: "󰋽"
+            label: "Plugin version"
+            detail: service.pluginVersion
             activatable: false
           }
         }

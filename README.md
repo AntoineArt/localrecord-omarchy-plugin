@@ -19,9 +19,12 @@ enough control that the tray icon becomes optional — the panel can hide it.
   file this reads nor the command file it writes. The app renumbered from
   0.1.17 straight to 1.3.0 so that it and this widget share a version from
   here on; the floor is still the old 0.1.16, which remains supported.
-- The panel's **Version** row needs LocalRecord **1.3.2 or newer**, which is
+- The panel heading and **App version** row need LocalRecord **1.3.2 or newer**, which is
   the first release to publish `app_version` in its state file. Below that the
-  row hides itself; nothing else changes, so the floor stays where it is.
+  app version hides itself; nothing else changes, so the floor stays where it is.
+- Use plugin **1.3.3 or newer** with LocalRecord **1.3.3 or newer**: it recognizes
+  the versioned Linux process name (`localrec-1.3.3`). Older app versions remain
+  supported. The **Plugin version** row is always available, even with the app stopped.
 
 ## Install
 
@@ -54,6 +57,10 @@ The same thing from a shell, if you prefer:
 | Left click | Open the panel |
 | Middle click | Start/stop recording |
 | Right click | Nothing, deliberately |
+
+With LocalRecord 1.3.3+, auto-levelling applies only to desktop audio: the microphone
+keeps a fixed gain so its hiss does not rise during pauses. With older apps, the
+panel keeps the original mic-and-desktop label.
 
 The panel holds start/stop, auto-levelling, launch at login, the tray icon,
 format, bitrate, the shortcut picker, the recordings folder, the last recording,

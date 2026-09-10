@@ -57,3 +57,16 @@ function shortcutText(binding) {
   if (text === "") return ""
   return text.split("+").map(function(part) { return part.trim() }).join(" + ")
 }
+
+// /proc/<pid>/comm is capped at 15 bytes. Accept old app names as well as the
+// name derived from the version in state.json; unrelated reused PIDs stay dead.
+function isLocalRecordProcess(name, version) {
+  return name === "localrecord"
+    || (version !== "" && name === ("localrec-" + version).slice(0, 15))
+}
+
+function desktopOnlyAgc(version) {
+  var parts = String(version).split(".").map(Number)
+  return parts.length === 3 && parts.every(function(part) { return Number.isFinite(part) })
+    && (parts[0] > 1 || (parts[0] === 1 && (parts[1] > 3 || (parts[1] === 3 && parts[2] >= 3))))
+}

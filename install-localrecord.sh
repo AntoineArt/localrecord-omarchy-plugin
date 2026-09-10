@@ -59,7 +59,7 @@ case ":$PATH:" in
   *) warn "$PREFIX is not on your PATH — add it to use \`localrecord\` from a shell." ;;
 esac
 
-if pgrep -x localrecord >/dev/null; then
+if pgrep -x 'localrecord|localrec-[0-9].*' >/dev/null; then
   say "Already running — restart it to pick up $version"
 else
   say "Starting LocalRecord"
